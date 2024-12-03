@@ -1,0 +1,12 @@
+certifi==2024.8.30
+charset-normalizer==3.4.0
+environs==11.2.1
+idna==3.10
+marshmallow==3.23.1
+packaging==24.2
+pybit==5.8.0
+pycryptodome==3.21.0
+python-dotenv==1.0.1
+requests==2.32.3
+urllib3==2.2.3
+websocket-client==1.8.0
