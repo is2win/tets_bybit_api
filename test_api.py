@@ -202,6 +202,9 @@ def if_all_positions_closed(position_old: dict):
                     price=next_order
                 )
                 logger.info(f"add_new_order = {add_new_order}")
+            except Exception as ex:
+                logger.error(f"Ошибка выстановления новой сетки оредров = {ex}")
+            try:
                 new_tp = round(float(current_position['avg_price']) * (1 + (TP_PERCENT * correction_coef * -1)), 2)
                 set_tp = set_take_profit(
                     symbol=SYMBOL,
@@ -209,7 +212,7 @@ def if_all_positions_closed(position_old: dict):
                 )
                 logger.info(f"set_tp = {set_tp}")
             except Exception as ex:
-                logger.error(f"Ошибка выстановления новой сетки оредров = {ex}")
+                logger.error(f"Ошибка выстановления нового ТП = {ex}")
             position[current_position.get('side')]['price'] = current_position['avg_price']
             logger.critical(position)
 
