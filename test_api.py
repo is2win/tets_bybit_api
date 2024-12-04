@@ -194,19 +194,22 @@ def if_all_positions_closed(position_old: dict):
 
             correction_coef = (-1, 1)[current_position['side'] == "Sell"]
             next_order = round(float(current_position['avg_price']) * (1 + (SL_PERCENT * correction_coef)), 2)
-            add_new_order = add_new_order_limit(
-                symbol=SYMBOL,
-                side=current_position['side'],
-                order_size=current_position['qty'] * 2,
-                price=next_order
-            )
-            logger.info(f"add_new_order = {add_new_order}")
-            new_tp = round(float(current_position['avg_price']) * (1 + (TP_PERCENT * correction_coef * -1)), 2)
-            set_tp = set_take_profit(
-                symbol=SYMBOL,
-                tp_price=new_tp
-            )
-            logger.info(f"set_tp = {set_tp}")
+            try:
+                add_new_order = add_new_order_limit(
+                    symbol=SYMBOL,
+                    side=current_position['side'],
+                    order_size=current_position['qty'] * 2,
+                    price=next_order
+                )
+                logger.info(f"add_new_order = {add_new_order}")
+                new_tp = round(float(current_position['avg_price']) * (1 + (TP_PERCENT * correction_coef * -1)), 2)
+                set_tp = set_take_profit(
+                    symbol=SYMBOL,
+                    tp_price=new_tp
+                )
+                logger.info(f"set_tp = {set_tp}")
+            except Exception as ex:
+                logger.error(f"Ошибка выстановления новой сетки оредров = {ex}")
             position[current_position.get('side')]['price'] = current_position['avg_price']
             logger.critical(position)
 
