@@ -165,7 +165,7 @@ def monitor_open_position(position: dict):
                 tp_price=position[current_position['side']]['tp']
             )
             position[current_position['side']]['price'] = current_position['avg_price']
-            print(f'установлена новая цена для  {current_position['side']} = {current_position['avg_price']}')
+            print(f"установлена новая цена для  {current_position['side']} = {current_position['avg_price']}")
             correction_coef = (-1, 1)[current_position['side'] == "Sell"]
             next_order = round(float(current_position['avg_price']) * (1 + (SL_PERCENT * correction_coef)), 2)
             add_new_order_limit(
