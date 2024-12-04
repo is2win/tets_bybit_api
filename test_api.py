@@ -16,7 +16,7 @@ SYMBOL = "ETHUSDT"
 
 ORDER_SIZE = 0.01  # Размер лота
 TP_PERCENT = 0.0025  # 0.5%
-SL_PERCENT = 0.005  # 1%
+SL_PERCENT = 0.0025  # 1%
 
 # Инициализация клиента Bybit V5
 client = HTTP(api_key=API_KEY,
@@ -28,64 +28,103 @@ def place_orders():
     # Получение текущей рыночной цены с помощью V5 API
     price = float(client.get_tickers(category="linear", symbol=SYMBOL).get('result').get('list')[0].get('ask1Price'))
     # price = float(ticker['result']['list'][0]['lastPrice'])  # Последняя цена на рынке
-    print(price)
-    buy_price = round(price * 1.001, 2)  # Цена покупки чуть выше текущей
-    print(buy_price)
-    sell_price = round(price * 0.999, 2)  # Цена продажи чуть ниже текущей
-    print(sell_price)
+    print(f"Цена отсчета = {price}")
+    buy_price = round(price * 1.0001, 2)  # Цена покупки чуть выше текущей
+    print(f"Цена для покупки маркетом = {buy_price}")
+    sell_price = round(price * 0.9999, 2)  # Цена продажи чуть ниже текущей
+    print(f"Цена для продажи маркетом = {sell_price}")
 
     # Расчёт TP и SL
     tp_buy = round(buy_price * (1 + TP_PERCENT), 2)
-    sl_buy = round(buy_price * (1 - SL_PERCENT), 2)
+    # sl_buy = round(buy_price * (1 - SL_PERCENT), 2)
     tp_sell = round(sell_price * (1 - TP_PERCENT), 2)
-    sl_sell = round(sell_price * (1 + SL_PERCENT), 2)
+    # sl_sell = round(sell_price * (1 + SL_PERCENT), 2)
 
     position = {
-                "buy_price": buy_price,
-                "sell_price": sell_price,
-                "tp_buy": tp_buy,
-                "sl_buy": sl_buy,
-                "tp_sell": tp_sell,
-                "sl_sell": sl_sell
+        "Buy": {
+            "price": buy_price,
+            "tp": tp_buy,
+        },
+        "Sell": {
+            "price": sell_price,
+            "tp": tp_sell,
+        }
     }
 
-    print(
-        position
-    )
-
-    # Создание условного ордера на покупку
-    buy_order = client.place_order(
-        category="linear",
+    buy_order = add_new_order_stop(
         symbol=SYMBOL,
         side="Buy",
-        orderType="Market",
-        qty=str(ORDER_SIZE),
-        price=str(buy_price),
-        timeInForce="GTC",
-        triggerPrice=str(buy_price),
-        triggerDirection=1,  # Buy direction for stop order
-        takeProfit=str(tp_buy),
-        stopLoss=str(sl_buy)
+        order_size=ORDER_SIZE,
+        price=buy_price
     )
-
-    # Создание условного ордера на продажу
-    sell_order = client.place_order(
-        category="linear",
+    sell_order = add_new_order_stop(
         symbol=SYMBOL,
         side="Sell",
-        orderType="Market",
-        qty=str(ORDER_SIZE),
-        price=str(sell_price),
-        timeInForce="GTC",
-        triggerPrice=str(sell_price),
-        triggerDirection=2,  # Sell direction for stop order
-        takeProfit=str(tp_sell),
-        stopLoss=str(sl_sell)
+        order_size=ORDER_SIZE,
+        price=sell_price
+    )
+    position["Buy"]['order'] = buy_order
+    position["Sell"]['order'] = sell_order
+    print(
+        f"Позиция: {position}"
     )
 
-    print("Buy Order:", buy_order)
-    print("Sell Order:", sell_order)
-    return buy_order['result']['orderId'], sell_order['result']['orderId']
+    return position
+
+
+def add_new_order_stop(symbol, side, order_size, price):
+    """
+    Уникальный создатель ордеров
+    :param symbol:
+    :param side:
+    :param order_size:
+    :param price:
+    :return:
+    """
+    make_order = client.place_order(
+        category="linear",
+        symbol=symbol,
+        side=side,
+        orderType="Market",
+        qty=str(order_size),
+        price=str(price),
+        timeInForce="GTC",
+        triggerPrice=str(price),
+        triggerDirection=(1, 2)[side == 'Sell'],  # Sell direction for stop order
+    )
+    return make_order
+
+def add_new_order_limit(symbol, side, order_size, price):
+    """
+    Уникальный создатель ордеров
+    :param symbol:
+    :param side:
+    :param order_size:
+    :param price:
+    :return:
+    """
+    make_order = client.place_order(
+        category="linear",
+        symbol=symbol,
+        side=side,
+        orderType="Limit",
+        qty=str(order_size),
+        price=str(price),
+        timeInForce="GTC",
+    )
+    return make_order
+
+def set_take_profit(symbol, tp_price):
+    make_tp = client.set_trading_stop(
+        category="linear",
+        symbol=symbol,
+        takeProfit=tp_price,
+        tpTriggerBy="MarkPrice",
+        tpslMode="Full",
+        tpOrderType="Market",
+        positionIdx=0,
+    )
+    return make_tp
 
 
 def get_open_orders():
@@ -98,7 +137,7 @@ def get_open_orders():
     r = client.get_positions(category="linear", symbol=SYMBOL)
     p = r.get('result', {}).get('list', [])[0]
     qty = float(p.get('size', '0.0'))
-
+    # print(f"r={r}")
     ret = dict(
         avg_price=p.get('avgPrice', '0.0'),
         side=p.get('side'),
@@ -111,23 +150,56 @@ def get_open_orders():
     return ret
 
 
-def monitor_open_position(buy_order_id, sell_order_id ):
+def monitor_open_position(position: dict):
+    print("Мониторинг открытия позы и создания лока")
     order_positions = dict(
-        Buy=buy_order_id,
-        Sell=sell_order_id
+        Buy=position['Buy']['order']['result']['orderId'],
+        Sell=position['Sell']['order']['result']['orderId']
     )
     while True:
         current_position = get_open_orders()
         if current_position.get('qty'):
             cancel_order(order_positions.get(current_position['rev_side']))
-            return
+            set_take_profit(
+                symbol=SYMBOL,
+                tp_price=position[current_position['side']]['tp']
+            )
+            position[current_position['side']]['price'] = current_position['avg_price']
+            print(f'установлена новая цена для  {current_position['side']} = {current_position['avg_price']}')
+            correction_coef = (-1, 1)[current_position['side'] == "Sell"]
+            next_order = round(float(current_position['avg_price']) * (1 + (SL_PERCENT * correction_coef)), 2)
+            add_new_order_limit(
+                symbol=SYMBOL,
+                side=current_position['side'],
+                order_size=current_position['qty'] * 2,
+                price=next_order
+            )
+            return position
 
 
-def if_all_positions_closed():
+def if_all_positions_closed(position: str):
+    print("Смотрю все ли позы закрыты... и добавляю еще одну если что")
     while True:
         current_position = get_open_orders()
         if not current_position.get('qty'):
+            print("Открытых сделок нет - закрываю лимитки")
+            client.cancel_all_orders(category="linear", symbol=SYMBOL)
             return
+        if not float(current_position.get('avg_price')) == float(position[current_position.get('side')]['price']):
+            correction_coef = (-1, 1)[current_position['side'] == "Sell"]
+            next_order = round(float(current_position['avg_price']) * (1 + (SL_PERCENT * correction_coef)), 2)
+            add_new_order_limit(
+                symbol=SYMBOL,
+                side=current_position['side'],
+                order_size=current_position['qty'] * 2,
+                price=next_order
+            )
+            new_tp = round(current_position['avg_price'] * (1 + TP_PERCENT * correction_coef), 2)
+            set_take_profit(
+                symbol=SYMBOL,
+                tp_price=new_tp
+            )
+            position[current_position.get('side')]['price'] = current_position['avg_price']
 
 
 def cancel_order(order_id):
@@ -145,14 +217,16 @@ def main():
     while True:
         print("start")
         # Выставляем ордера
-        buy_order_id, sell_order_id = place_orders()
+        position = place_orders()
+        # buy_order_id = position['buy_order']['result']['orderId']
+        # sell_order_id = position['sell_order']['result']['orderId']
 
         # # Мониторим их выполнение
-        monitor_open_position(buy_order_id, sell_order_id)
+        position = monitor_open_position(position)
         # print(f"Executed side: {executed_side}")
 
         # Мониторим открытую позицию до её закрытия
-        if_all_positions_closed()
+        if_all_positions_closed(position)
 
         # После выполнения ордера и закрытия позиции начинаем заново
         print("Cycle complete. Restarting...")
