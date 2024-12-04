@@ -177,8 +177,9 @@ def monitor_open_position(position: dict):
             return position
 
 
-def if_all_positions_closed(position: str):
+def if_all_positions_closed(position_old: dict):
     print("Смотрю все ли позы закрыты... и добавляю еще одну если что")
+    position = position_old
     while True:
         current_position = get_open_orders()
         if not current_position.get('qty'):
