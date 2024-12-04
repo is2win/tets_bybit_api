@@ -1,6 +1,7 @@
 from pybit.unified_trading import HTTP
 import time
 from environs import Env
+from loguru import logger
 
 env = Env()
 env.read_env()
@@ -28,11 +29,11 @@ def place_orders():
     # Получение текущей рыночной цены с помощью V5 API
     price = float(client.get_tickers(category="linear", symbol=SYMBOL).get('result').get('list')[0].get('ask1Price'))
     # price = float(ticker['result']['list'][0]['lastPrice'])  # Последняя цена на рынке
-    print(f"Цена отсчета = {price}")
+    logger.info(f"Цена отсчета = {price}")
     buy_price = round(price * 1.0001, 2)  # Цена покупки чуть выше текущей
-    print(f"Цена для покупки маркетом = {buy_price}")
+    logger.info(f"Цена для покупки маркетом = {buy_price}")
     sell_price = round(price * 0.9999, 2)  # Цена продажи чуть ниже текущей
-    print(f"Цена для продажи маркетом = {sell_price}")
+    logger.info(f"Цена для продажи маркетом = {sell_price}")
 
     # Расчёт TP и SL
     tp_buy = round(buy_price * (1 + TP_PERCENT), 2)
@@ -65,7 +66,7 @@ def place_orders():
     )
     position["Buy"]['order'] = buy_order
     position["Sell"]['order'] = sell_order
-    print(
+    logger.info(
         f"Позиция: {position}"
     )
 
@@ -94,6 +95,7 @@ def add_new_order_stop(symbol, side, order_size, price):
     )
     return make_order
 
+
 def add_new_order_limit(symbol, side, order_size, price):
     """
     Уникальный создатель ордеров
@@ -113,6 +115,7 @@ def add_new_order_limit(symbol, side, order_size, price):
         timeInForce="GTC",
     )
     return make_order
+
 
 def set_take_profit(symbol, tp_price):
     make_tp = client.set_trading_stop(
@@ -151,7 +154,7 @@ def get_open_orders():
 
 
 def monitor_open_position(position: dict):
-    print("Мониторинг открытия позы и создания лока")
+    logger.info("Мониторинг открытия позы и создания лока")
     order_positions = dict(
         Buy=position['Buy']['order']['result']['orderId'],
         Sell=position['Sell']['order']['result']['orderId']
@@ -165,7 +168,7 @@ def monitor_open_position(position: dict):
                 tp_price=position[current_position['side']]['tp']
             )
             position[current_position['side']]['price'] = current_position['avg_price']
-            print(f"установлена новая цена для  {current_position['side']} = {current_position['avg_price']}")
+            logger.info(f"установлена новая цена для  {current_position['side']} = {current_position['avg_price']}")
             correction_coef = (-1, 1)[current_position['side'] == "Sell"]
             next_order = round(float(current_position['avg_price']) * (1 + (SL_PERCENT * correction_coef)), 2)
             add_new_order_limit(
@@ -183,24 +186,29 @@ def if_all_positions_closed(position_old: dict):
     while True:
         current_position = get_open_orders()
         if not current_position.get('qty'):
-            print("Открытых сделок нет - закрываю лимитки")
+            logger.success("Открытых сделок нет - закрываю лимитки")
             client.cancel_all_orders(category="linear", symbol=SYMBOL)
             return
-        if not float(current_position.get('avg_price')) == float(position[current_position.get('side')]['price']):
+        if current_position.get('avg_price') != position[current_position.get('side')]['price']:
+            logger.critical(f"current_avg_price = {current_position['avg_price']} vs last_avg_price = {position[current_position.get('side')]['price']}")
+
             correction_coef = (-1, 1)[current_position['side'] == "Sell"]
             next_order = round(float(current_position['avg_price']) * (1 + (SL_PERCENT * correction_coef)), 2)
-            add_new_order_limit(
+            add_new_order = add_new_order_limit(
                 symbol=SYMBOL,
                 side=current_position['side'],
                 order_size=current_position['qty'] * 2,
                 price=next_order
             )
-            new_tp = round(current_position['avg_price'] * (1 + TP_PERCENT * correction_coef), 2)
-            set_take_profit(
+            logger.info(f"add_new_order = {add_new_order}")
+            new_tp = round(float(current_position['avg_price']) * (1 + (TP_PERCENT * correction_coef * -1)), 2)
+            set_tp = set_take_profit(
                 symbol=SYMBOL,
                 tp_price=new_tp
             )
+            logger.info(f"set_tp = {set_tp}")
             position[current_position.get('side')]['price'] = current_position['avg_price']
+            logger.critical(position)
 
 
 def cancel_order(order_id):
@@ -216,7 +224,7 @@ def cancel_order(order_id):
 def main():
     """Основной цикл работы бота."""
     while True:
-        print("start")
+        logger.success("start")
         # Выставляем ордера
         position = place_orders()
         # buy_order_id = position['buy_order']['result']['orderId']
@@ -224,13 +232,13 @@ def main():
 
         # # Мониторим их выполнение
         position = monitor_open_position(position)
-        # print(f"Executed side: {executed_side}")
+
 
         # Мониторим открытую позицию до её закрытия
         if_all_positions_closed(position)
 
         # После выполнения ордера и закрытия позиции начинаем заново
-        print("Cycle complete. Restarting...")
+        logger.success("Cycle complete. Restarting...")
         # time.sleep(2)
 
 
