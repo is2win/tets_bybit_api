@@ -30,9 +30,9 @@ def place_orders():
     price = float(client.get_tickers(category="linear", symbol=SYMBOL).get('result').get('list')[0].get('ask1Price'))
     # price = float(ticker['result']['list'][0]['lastPrice'])  # Последняя цена на рынке
     logger.info(f"Цена отсчета = {price}")
-    buy_price = round(price * 1.0001, 2)  # Цена покупки чуть выше текущей
+    buy_price = round(price * 1.001, 2)  # Цена покупки чуть выше текущей
     logger.info(f"Цена для покупки маркетом = {buy_price}")
-    sell_price = round(price * 0.9999, 2)  # Цена продажи чуть ниже текущей
+    sell_price = round(price * 0.999, 2)  # Цена продажи чуть ниже текущей
     logger.info(f"Цена для продажи маркетом = {sell_price}")
 
     # Расчёт TP и SL
