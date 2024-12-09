@@ -190,16 +190,16 @@ def monitor_open_position(position: dict):
             correction_coef = (1, -1)[current_position['side'] == "Sell"]
             set_take_profit(
                 symbol=SYMBOL,
-                tp_price=round(decimal.Decimal(
-                    float(current_position['avg_price']) * (1 + (TP_PERCENT * correction_coef))),
+                tp_price=round(
+                    float(current_position['avg_price']) * (1 + (TP_PERCENT * correction_coef)),
                     PRICE_DECIMALS)
             )
             position[current_position['side']]['avg_price'] = current_position['avg_price']
             logger.info(f"установлена новая цена для  {current_position['side']} = {current_position['avg_price']}")
 
             correction_coef = (-1, 1)[current_position['side'] == "Sell"]
-            next_order = round(decimal.Decimal(
-                position[current_position['side']]['price']) + (
+            next_order = round(
+                position[current_position['side']]['price'] + (
                     position[current_position['side']]['delta'] * position[current_position['side']]['order_num'] * correction_coef),
                                PRICE_DECIMALS)
 
@@ -227,10 +227,10 @@ def if_all_positions_closed(position_old: dict):
             logger.critical(f"current_avg_price = {current_position['avg_price']} vs last_avg_price = {position[current_position.get('side')]['price']}")
 
             correction_coef = (-1, 1)[current_position['side'] == "Sell"]
-            next_order = round(decimal.Decimal(float(
+            next_order = round(float(
                 position[current_position['side']]['price']) + (
                                        position[current_position['side']]['delta'] * position[current_position['side']][
-                                   'order_num'] * correction_coef)),
+                                   'order_num'] * correction_coef),
                                PRICE_DECIMALS)
 
             position[current_position['side']]['order_num'] = position[current_position['side']]['order_num'] + 1
@@ -247,7 +247,7 @@ def if_all_positions_closed(position_old: dict):
             try:
                 correction_coef = (1, -1)[current_position['side'] == "Sell"]
                 new_tp = round(
-                    decimal.Decimal(float(current_position['avg_price']) * (1 + (TP_PERCENT * correction_coef))),
+                    float(current_position['avg_price']) * (1 + (TP_PERCENT * correction_coef)),
                     PRICE_DECIMALS)
 
                 set_tp = set_take_profit(
