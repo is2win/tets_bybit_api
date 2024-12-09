@@ -34,7 +34,7 @@ def get_filters():
     c = r.get('result', {}).get('list', [])[0]
     print(c)
     min_qty = c.get('lotSizeFilter', {}).get('minOrderQty', '0.0')
-    qty_decimals = abs(float(min_qty).as_tuple().exponent)
+    qty_decimals = abs(decimal.Decimal(min_qty).as_tuple().exponent)
     price_decimals = int(c.get('priceScale', '4'))
     min_qty = float(min_qty) * 500
 
