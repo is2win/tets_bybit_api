@@ -34,9 +34,9 @@ def get_filters():
     c = r.get('result', {}).get('list', [])[0]
     print(c)
     min_qty = c.get('lotSizeFilter', {}).get('minOrderQty', '0.0')
-    qty_decimals = abs(decimal.Decimal(min_qty).as_tuple().exponent)
+    qty_decimals = abs(float(min_qty).as_tuple().exponent)
     price_decimals = int(c.get('priceScale', '4'))
-    min_qty = decimal.Decimal(min_qty) * 500
+    min_qty = float(min_qty) * 500
 
     logger.success(f"{price_decimals}, {qty_decimals}, {min_qty}")
     return price_decimals, qty_decimals, min_qty
@@ -46,7 +46,7 @@ def get_delta(price):
     # Получение текущей рыночной цены с помощью V5 API
     # Расчёт TP и SL
     delta = (price * (1 + TP_PERCENT)) - price
-    return round(decimal.Decimal(delta), PRICE_DECIMALS)
+    return round(float(delta), PRICE_DECIMALS)
 
 
 def place_orders():
